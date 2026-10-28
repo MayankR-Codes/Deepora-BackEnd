@@ -408,6 +408,14 @@ async function handle(req, res) {
     targetPath += req.url.slice(req.url.indexOf('?'));
   }
 
+  if (req.url && (req.url.includes('debug=1') || req.headers['x-debug'] === '1')) {
+    return send(res, 200, {
+      reqUrl: req.url,
+      targetPath,
+      headers: req.headers,
+    });
+  }
+
   const url = new URL(targetPath, `${protocol}://${hostHeader}`);
   const ip = clientIp(req);
 
