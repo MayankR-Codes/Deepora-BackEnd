@@ -25,6 +25,7 @@ let client = null;
 let db = null;
 let isConnecting = false;
 let indexesInitialized = false;
+let lastMongoError = null;
 
 function getMongoConfig() {
   return {
@@ -76,8 +77,10 @@ async function connectToMongo() {
         console.error(`[MongoDB] Background index error: ${err.message}`);
       });
     }
+    lastMongoError = null;
     return db;
   } catch (error) {
+    lastMongoError = error.message;
     console.error(`[MongoDB] Connection failed: ${error.message}`);
     if (client) await client.close().catch(() => {});
     client = null;
@@ -86,6 +89,13 @@ async function connectToMongo() {
   } finally {
     isConnecting = false;
   }
+}
+
+function getLastMongoError() {
+  if (!process.env.MONGODB_URI) {
+    return 'MONGODB_URI is not set in Vercel Environment Variables';
+  }
+  return lastMongoError;
 }
 
 function getDb() {
@@ -349,6 +359,7 @@ module.exports = {
   connectToMongo,
   getDb,
   isConnected,
+  getLastMongoError,
   closeConnection,
   initCollectionsAndIndexes,
   // User

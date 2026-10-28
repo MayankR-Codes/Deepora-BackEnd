@@ -396,7 +396,9 @@ async function handle(req, res) {
   if (!db.isConnected() && process.env.MONGODB_URI) {
     try {
       await db.connectToMongo();
-    } catch {}
+    } catch (err) {
+      console.error('[MongoDB] Connection error in request:', err.message);
+    }
   }
 
   if (req.method === 'GET' && url.pathname === '/api/health/email') {
@@ -492,10 +494,14 @@ async function handle(req, res) {
 
   // Health check
   if (req.method === 'GET' && url.pathname === '/api/health') {
-    return send(res, 200, {
-      ok: db.isConnected(),
+    const isConn = db.isConnected();
+    const lastErr = db.getLastMongoError();
+    return send(res, isConn ? 200 : 503, {
+      ok: isConn,
       database: 'mongodb',
-      mongoConnected: db.isConnected(),
+      mongoConnected: isConn,
+      configured: Boolean(process.env.MONGODB_URI),
+      ...(isConn ? {} : { error: lastErr || 'MongoDB connection not established' }),
     });
   }
 
@@ -878,10 +884,12 @@ async function handle(req, res) {
     return send(res, 200, { user: publicUser(user), token: session.token }, { 'Set-Cookie': session.cookie });
   }
 
-function getBackendStatusHtml(isDbConnected) {
+function getBackendStatusHtml(isDbConnected, lastErr) {
   const dbStatusClass = isDbConnected ? 'status-online' : 'status-warn';
   const dbStatusText = isDbConnected ? 'MongoDB Atlas Connected' : 'Database Offline';
   const platform = process.env.VERCEL ? 'Vercel Serverless' : 'Node.js Production';
+  const isMissingEnv = !process.env.MONGODB_URI;
+  const errorReason = lastErr || (isMissingEnv ? 'MONGODB_URI is not set in Vercel Environment Variables' : 'Could not reach MongoDB Atlas cluster');
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -1014,7 +1022,7 @@ function getBackendStatusHtml(isDbConnected) {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 12px;
-      margin-bottom: 30px;
+      margin-bottom: 24px;
       text-align: left;
     }
     .meta-item {
@@ -1041,6 +1049,49 @@ function getBackendStatusHtml(isDbConnected) {
     }
     .status-online { color: #34d399; }
     .status-warn { color: #fbbf24; }
+    .alert-box {
+      margin: 0 0 24px;
+      padding: 18px 20px;
+      background: rgba(245, 158, 11, 0.08);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: 14px;
+      text-align: left;
+    }
+    .alert-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #fbbf24;
+      font-weight: 700;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+    .alert-reason {
+      font-size: 13px;
+      color: #f7ede2;
+      margin-bottom: 12px;
+      word-break: break-word;
+    }
+    .alert-reason code {
+      background: rgba(0,0,0,0.5);
+      padding: 3px 8px;
+      border-radius: 6px;
+      color: #fca5a5;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .alert-steps {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+    .alert-steps ol {
+      margin-left: 20px;
+      margin-top: 6px;
+    }
+    .alert-steps li {
+      margin-bottom: 4px;
+    }
     .endpoints-title {
       font-size: 12px;
       font-weight: 700;
@@ -1131,6 +1182,31 @@ function getBackendStatusHtml(isDbConnected) {
         </div>
       </div>
 
+      ${!isDbConnected ? `
+      <div class="alert-box">
+        <div class="alert-header">
+          <span>⚠️</span>
+          <span>MongoDB Database Disconnected</span>
+        </div>
+        <p class="alert-reason">Diagnostic: <code>${escapeHtml(errorReason)}</code></p>
+        <div class="alert-steps">
+          <strong>How to fix on Vercel:</strong>
+          <ol>
+            ${isMissingEnv ? `
+              <li>Open your <strong>Vercel Dashboard</strong> &rarr; Select your backend project.</li>
+              <li>Go to <strong>Settings</strong> &rarr; <strong>Environment Variables</strong>.</li>
+              <li>Add Key: <code>MONGODB_URI</code> with your MongoDB Atlas connection string.</li>
+              <li>Go to the <strong>Deployments</strong> tab &rarr; Click <strong>Redeploy</strong>.</li>
+            ` : `
+              <li>Open <a href="https://cloud.mongodb.com" target="_blank" style="color:var(--gold);text-decoration:underline;">MongoDB Atlas</a> &rarr; <strong>Network Access</strong>.</li>
+              <li>Click <strong>Add IP Address</strong> &rarr; Choose <strong>Allow Access from Anywhere</strong> (<code>0.0.0.0/0</code>) &rarr; Click <strong>Confirm</strong>. (Required for dynamic Vercel serverless IPs).</li>
+              <li>Verify your database user password in Atlas &rarr; <strong>Database Access</strong>.</li>
+            `}
+          </ol>
+        </div>
+      </div>
+      ` : ''}
+
       <div class="endpoints-title">Live API Endpoints</div>
       <div class="endpoints-list">
         <a class="endpoint-btn" href="/api/products" target="_blank">
@@ -1163,11 +1239,13 @@ function getBackendStatusHtml(isDbConnected) {
       url.pathname === '/api';
 
     if (wantsJson) {
+      const isDbConnected = db.isConnected();
       return send(res, 200, {
         service: 'DEEPORA REST API',
         message: 'Deepora Backend is running',
         status: 'online',
-        database: db.isConnected() ? 'connected' : 'offline',
+        database: isDbConnected ? 'connected' : 'offline',
+        ...(isDbConnected ? {} : { databaseError: db.getLastMongoError() || 'MongoDB offline' }),
         version: '1.0.0',
         platform: process.env.VERCEL ? 'Vercel Serverless' : 'Node.js Standalone',
         documentation: 'See README.md for endpoint specifications',
@@ -1184,7 +1262,8 @@ function getBackendStatusHtml(isDbConnected) {
 
     // Render HTML preview for web browsers and Vercel web preview
     const isDbConnected = db.isConnected();
-    const html = getBackendStatusHtml(isDbConnected);
+    const lastErr = db.getLastMongoError();
+    const html = getBackendStatusHtml(isDbConnected, lastErr);
     res.writeHead(200, {
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': 'no-cache',
