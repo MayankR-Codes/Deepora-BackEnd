@@ -1,0 +1,34 @@
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+/node_modules/
+
+# Local databases and runtime data
+data/
+/data/
+**/data/
+*.db
+*.sqlite
+
+# Logs and temporary files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.tmp
+
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# Editor & AI tool directories
+.opencode/
+.vscode/
+.idea/
+
+# Vercel
+.vercel/

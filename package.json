@@ -1,0 +1,28 @@
+{
+  "name": "deepora-backend",
+  "version": "1.0.0",
+  "description": "Deepora handcrafted diya brand storefront REST API and MongoDB backend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "ecommerce",
+    "backend",
+    "deepora",
+    "mongodb",
+    "nodemailer",
+    "rest-api"
+  ],
+  "author": "Mayank Rana",
+  "license": "ISC",
+  "engines": {
+    "node": ">=18.x"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.9",
+    "mongodb": "^7.7.0",
+    "nodemailer": "^10.2.1"
+  }
+}
