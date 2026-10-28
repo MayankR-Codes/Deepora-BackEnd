@@ -878,23 +878,319 @@ async function handle(req, res) {
     return send(res, 200, { user: publicUser(user), token: session.token }, { 'Set-Cookie': session.cookie });
   }
 
-  // Root API Information & Status
+function getBackendStatusHtml(isDbConnected) {
+  const dbStatusClass = isDbConnected ? 'status-online' : 'status-warn';
+  const dbStatusText = isDbConnected ? 'MongoDB Atlas Connected' : 'Database Offline';
+  const platform = process.env.VERCEL ? 'Vercel Serverless' : 'Node.js Production';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Deepora Backend is running</title>
+  <meta name="description" content="Deepora Storefront REST API and Database Service">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0907;
+      --card-bg: rgba(22, 17, 13, 0.85);
+      --card-border: rgba(212, 163, 89, 0.22);
+      --card-border-glow: rgba(224, 109, 83, 0.35);
+      --text: #f7ede2;
+      --text-muted: #bdaea1;
+      --gold: #d4a359;
+      --flame: #e06d53;
+      --emerald: #10b981;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(circle at 50% 15%, rgba(224, 109, 83, 0.18), transparent 45%),
+        radial-gradient(circle at 85% 75%, rgba(212, 163, 89, 0.12), transparent 40%),
+        radial-gradient(circle at 15% 85%, rgba(224, 109, 83, 0.08), transparent 35%);
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      line-height: 1.6;
+    }
+    .wrapper {
+      max-width: 680px;
+      width: 100%;
+    }
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: 24px;
+      padding: 44px 36px;
+      box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.65), 0 0 40px -10px var(--card-border-glow);
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, transparent, var(--gold), var(--flame), transparent);
+    }
+    .diya-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(224, 109, 83, 0.25) 0%, rgba(212, 163, 89, 0.08) 100%);
+      border: 1px solid rgba(212, 163, 89, 0.35);
+      margin-bottom: 20px;
+      box-shadow: 0 0 25px rgba(224, 109, 83, 0.35);
+    }
+    .diya-icon {
+      width: 32px;
+      height: 32px;
+      fill: none;
+      stroke: var(--gold);
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .pulse-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34d399;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      margin-bottom: 16px;
+    }
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--emerald);
+      box-shadow: 0 0 10px var(--emerald);
+      animation: pulse 2s infinite ease-in-out;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.35); opacity: 0.6; }
+    }
+    h1 {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 34px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: #fff;
+      margin-bottom: 10px;
+    }
+    h1 span {
+      background: linear-gradient(135deg, #f7ede2, var(--gold));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .subtitle {
+      font-size: 15px;
+      color: var(--text-muted);
+      max-width: 480px;
+      margin: 0 auto 30px;
+    }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 30px;
+      text-align: left;
+    }
+    .meta-item {
+      background: rgba(12, 9, 7, 0.65);
+      border: 1px solid rgba(212, 163, 89, 0.15);
+      border-radius: 14px;
+      padding: 14px 16px;
+    }
+    .meta-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+    .meta-value {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .status-online { color: #34d399; }
+    .status-warn { color: #fbbf24; }
+    .endpoints-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--gold);
+      margin-bottom: 12px;
+    }
+    .endpoints-list {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+    .endpoint-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: rgba(212, 163, 89, 0.08);
+      border: 1px solid rgba(212, 163, 89, 0.22);
+      border-radius: 12px;
+      color: var(--text);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: monospace;
+      transition: all 0.2s ease;
+    }
+    .endpoint-btn:hover {
+      background: rgba(212, 163, 89, 0.18);
+      border-color: var(--gold);
+      transform: translateY(-1px);
+    }
+    .method {
+      background: rgba(224, 109, 83, 0.2);
+      color: #ff9d85;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 11px;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 24px;
+      font-size: 12px;
+      color: rgba(189, 174, 161, 0.65);
+    }
+    .footer a {
+      color: var(--gold);
+      text-decoration: none;
+    }
+    .footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="card">
+      <div class="diya-badge">
+        <svg class="diya-icon" viewBox="0 0 24 24">
+          <path d="M12 2c.5 2 2.5 4 2.5 6a2.5 2.5 0 0 1-5 0c0-2 2-4 2.5-6z" fill="var(--flame)" stroke="none"/>
+          <path d="M4 14c0 4.418 3.582 7 8 7s8-2.582 8-7c0-2-2-4-8-4s-8 2-8 4z"/>
+          <path d="M7 14h10"/>
+        </svg>
+      </div>
+
+      <div class="pulse-pill">
+        <span class="pulse-dot"></span>
+        Deepora Service Online
+      </div>
+
+      <h1><span>Deepora Backend is running</span></h1>
+      <p class="subtitle">REST API & MongoDB database service powering the handcrafted Deepora storefront.</p>
+
+      <div class="meta-grid">
+        <div class="meta-item">
+          <div class="meta-label">Environment</div>
+          <div class="meta-value">${platform}</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">Database</div>
+          <div class="meta-value ${dbStatusClass}">● ${dbStatusText}</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">Service Version</div>
+          <div class="meta-value">v1.0.0 (REST)</div>
+        </div>
+      </div>
+
+      <div class="endpoints-title">Live API Endpoints</div>
+      <div class="endpoints-list">
+        <a class="endpoint-btn" href="/api/products" target="_blank">
+          <span class="method">GET</span> /api/products
+        </a>
+        <a class="endpoint-btn" href="/api/health" target="_blank">
+          <span class="method">GET</span> /api/health
+        </a>
+        <a class="endpoint-btn" href="/api/health/email" target="_blank">
+          <span class="method">GET</span> /api/health/email
+        </a>
+        <a class="endpoint-btn" href="/?format=json" target="_blank">
+          <span class="method">JSON</span> Status API
+        </a>
+      </div>
+    </div>
+
+    <div class="footer">
+      Deepora Storefront · Handcrafted Festive Diyas · <a href="/api/health">Diagnostic Status</a>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+  // Root API Information & Web Preview
   if ((url.pathname === '/' || url.pathname === '/api') && (req.method === 'GET' || req.method === 'HEAD')) {
-    return send(res, 200, {
-      service: 'DEEPORA REST API',
-      status: 'online',
-      database: db.isConnected() ? 'connected' : 'offline',
-      version: '1.0.0',
-      documentation: 'See README.md for endpoint specifications',
-      endpoints: {
-        health: '/api/health',
-        healthEmail: '/api/health/email',
-        products: '/api/products',
-        authMe: '/api/auth/me',
-        cart: '/api/cart',
-        orders: '/api/orders',
-      },
+    const wantsJson = (req.headers.accept && req.headers.accept.includes('application/json') && !req.headers.accept.includes('text/html')) ||
+      url.searchParams.get('format') === 'json' ||
+      url.pathname === '/api';
+
+    if (wantsJson) {
+      return send(res, 200, {
+        service: 'DEEPORA REST API',
+        message: 'Deepora Backend is running',
+        status: 'online',
+        database: db.isConnected() ? 'connected' : 'offline',
+        version: '1.0.0',
+        platform: process.env.VERCEL ? 'Vercel Serverless' : 'Node.js Standalone',
+        documentation: 'See README.md for endpoint specifications',
+        endpoints: {
+          health: '/api/health',
+          healthEmail: '/api/health/email',
+          products: '/api/products',
+          authMe: '/api/auth/me',
+          cart: '/api/cart',
+          orders: '/api/orders',
+        },
+      });
+    }
+
+    // Render HTML preview for web browsers and Vercel web preview
+    const isDbConnected = db.isConnected();
+    const html = getBackendStatusHtml(isDbConnected);
+    res.writeHead(200, {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-cache',
     });
+    if (req.method === 'HEAD') return res.end();
+    return res.end(html);
   }
 
   // Optional static file serving if configured or if static folder exists
