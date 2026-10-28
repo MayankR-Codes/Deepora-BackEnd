@@ -389,7 +389,26 @@ async function handle(req, res) {
 
   const hostHeader = req.headers['x-forwarded-host'] || req.headers.host || `${host}:${port}`;
   const protocol = req.headers['x-forwarded-proto'] || 'http';
-  const url = new URL(req.url, `${protocol}://${hostHeader}`);
+
+  // On Vercel / serverless rewrites, req.url may be rewritten to '/api/index.js'.
+  // Prefer x-matched-path, x-forwarded-uri, or x-original-url to get the actual client path.
+  let targetPath = req.url || '/';
+  if (req.headers['x-matched-path']) {
+    targetPath = req.headers['x-matched-path'];
+  } else if (req.headers['x-forwarded-uri']) {
+    targetPath = req.headers['x-forwarded-uri'];
+  } else if (req.headers['x-original-url']) {
+    targetPath = req.headers['x-original-url'];
+  } else if (targetPath.startsWith('/api/index.js') || targetPath.startsWith('/api/index')) {
+    targetPath = '/';
+  }
+
+  // Preserve query string if x-matched-path stripped it
+  if (req.url && req.url.includes('?') && !targetPath.includes('?')) {
+    targetPath += req.url.slice(req.url.indexOf('?'));
+  }
+
+  const url = new URL(targetPath, `${protocol}://${hostHeader}`);
   const ip = clientIp(req);
 
   // Lazy connect to MongoDB if not yet connected (essential for Vercel / serverless cold starts)
